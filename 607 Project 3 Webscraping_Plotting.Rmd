@@ -1,0 +1,288 @@
+---
+title: "607 Project 3 -webscraping Indeed.com"
+author: "Adam Gersowitz Chitrart Kaushik"
+date: "3/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction to project 3
+
+In this project we are tasked with determining which are the most valued skills of a data scientist. In order to do this we decided to webscrpae job listings for Data Scientists from Indeed.com. After scraping this information we will transform and analyze the data to see which skills are most often occurring in the indeed data set. We scrpaed 1,436 job listings that have been posted in the past week. We did not put a filter on the job location.
+
+```{r Indeed}
+
+
+library(tidyverse)
+library(rvest)
+library(xml2)
+library(stringr)
+
+
+
+url <- "https://www.indeed.com/jobs?q=data+scientist&sort=date&fromage=7"
+page <- xml2::read_html(url)
+
+
+
+
+job_num<-str_match(job_num,
+            pattern = 'of (.*?) jobs')
+
+job_num<-as.numeric(gsub(",","",job_num[,2]))
+
+job_num
+
+job_title<- c()
+  job_title <- page %>% 
+    rvest::html_nodes("div") %>%
+    rvest::html_nodes(xpath = '//*[@data-tn-element = "jobTitle"]') %>%
+    rvest::html_attr("title")
+
+  job_location<-c()
+  job_location <-page %>% 
+    rvest::html_nodes("div") %>%
+    rvest::html_nodes(xpath = '//*[@class = "recJobLoc"]') %>%
+    rvest::html_attr("data-rc-loc")
+
+  job_company<-c()
+  job_company <-page %>% 
+    rvest::html_nodes("span") %>%
+    rvest::html_nodes(xpath = '//*[@data-tn-element = "companyName"]') %>%
+    rvest::html_text() %>%
+    stringi::stri_trim_both()
+
+  job_company_rating<-c()
+  job_company_rating <-page %>% 
+    rvest::html_nodes("span") %>%
+    rvest::html_nodes(xpath = '//*[@class = "ratingsContent"]') %>%
+    rvest::html_text() %>%
+    stringi::stri_trim_both()
+
+  job_descr_links<-c()
+  job_descr_links <-page %>% 
+  rvest::html_nodes("div") %>%
+  rvest::html_nodes(xpath = '//*[@class="jobtitle turnstileLink "]') %>%
+  rvest::html_attr("href")
+  
+  
+  job_descr<- c()
+  for(i in seq_along(job_descr_links)) {
+    
+  indeed <- "https://www.indeed.com/"
+    job_descr_url <- paste0(indeed,job_descr_links[i],  sep="")
+    pa <- xml2::read_html(job_descr_url)
+    job_descr <-pa %>%
+    rvest::html_nodes("ul")  %>% 
+    rvest::html_nodes(xpath = '//*[@class="jobsearch-jobDescriptionText"]') %>% 
+    rvest::html_text() %>%
+    stringi::stri_trim_both()
+}
+
+  
+  
+  
+result_start <- 10 
+result_end <- 840
+results <- seq(from = result_start, to = result_end, by = 10)
+#results
+
+indeed_df<-data.frame()
+
+for(i in seq_along(results)) {
+  
+  url<-"https://www.indeed.com/jobs?q=data+scientist&sort=date&fromage=7&start="
+  iurl <- paste0(url, toString(i))
+  p <- xml2::read_html(iurl)
+  p
+  Sys.sleep(1)
+
+  jt <- p %>% 
+    rvest::html_nodes("div") %>%
+    rvest::html_nodes(xpath = '//*[@data-tn-element = "jobTitle"]') %>%
+    rvest::html_attr("title")
+  job_title<-c(job_title,jt)
+  
+  jl <-p %>% 
+    rvest::html_nodes("div") %>%
+    rvest::html_nodes(xpath = '//*[@class = "recJobLoc"]') %>%
+    rvest::html_attr("data-rc-loc")
+  job_location<-c(job_location,jl)
+  
+  jc<-p %>% 
+    rvest::html_nodes("span") %>%
+    rvest::html_nodes(xpath = '//*[@data-tn-element = "companyName"]') %>%
+    rvest::html_text() %>%
+    stringi::stri_trim_both()
+  job_company<-c(job_company,jc)
+  
+  jcr <-p %>% 
+    rvest::html_nodes("span") %>%
+    rvest::html_nodes(xpath = '//*[@class = "ratingsContent"]') %>%
+    rvest::html_text() %>%
+    stringi::stri_trim_both()
+  job_company_rating<-c(job_company_rating,jcr)
+  
+  jdl <-p %>% 
+  rvest::html_nodes("div") %>%
+  rvest::html_nodes(xpath = '//*[@class="jobtitle turnstileLink "]') %>%
+  rvest::html_attr("href")
+  job_descr_links<-c(job_descr_links,jdl)
+  
+  
+
+  for(i in seq_along(jdl)) {
+    
+    indeed <- "https://www.indeed.com/"
+    job_descr_url <- paste0(indeed,jdl[i],  sep="")
+    pa <- xml2::read_html(job_descr_url)
+    jd<-pa %>%
+    rvest::html_nodes("ul")  %>% 
+    rvest::html_nodes(xpath = '//*[@class="jobsearch-jobDescriptionText"]') %>% 
+    rvest::html_text() %>%
+    stringi::stri_trim_both()
+    job_descr<-c(job_descr,jd)
+}
+
+ #  df <- data.frame(job_title, job_company_rating,  job_location, job_company, job_descr)
+#  indeed_df <- rbind(indeed_df, df)
+   
+   
+   }
+
+
+#job_company_rating
+#job_location
+#job_company
+#head(job_title,50)
+#head(job_company,50)
+#head(job_descr,20)
+
+
+
+
+write.csv(matrix(job_descr, nrow=1), file ="INDEED_DESCR.csv", row.names=FALSE)
+
+```
+
+After getting the job descriptions into the job_descr vector we will save the other vectors (company, title etc.) in their won vectors in case they are needed for further analysis. Next,  we used the links below to identify potential skills and phrases that would be in potential job listings for data scientists.
+
+https://towardsdatascience.com/the-most-in-demand-skills-for-data-scientists-4a4a8db896db
+
+https://www.thebalancecareers.com/list-of-data-scientist-skills-2062381
+
+https://www.cio.com/article/3263790/the-essential-skills-and-traits-of-an-expert-data-scientist.html
+
+https://www.simplilearn.com/what-skills-do-i-need-to-become-a-data-scientist-article
+
+```{r transform-data}
+
+
+library(tidyverse)
+library(rvest)
+library(xml2)
+library(stringr)
+library(sqldf)
+
+job_des <-as.list(job_descr)
+lds<-length(job_des)
+id<-c(1:lds)
+jd_df<-df <- data.frame(job_descr,id)
+
+
+GENERAL_SKILLS<-c("ANALYSIS","MACHINE LEARNING","STATISTICS","COMPUTER SCIENCE","MATHEMATICS","VISUALIZATION","AI","ARTIFICIAL INTELLIGENCE","DEEP LEARNING","NLP","NEURO-LINGUISTIC PROGRAMMING","NEURO LINGUISTIC PROGRAMMING","SOFTWARE DEVELOPMENT","NEURAL NETWORKS","PROJECT MANAGEMENT","SOFTWARE ENGINEER","DATA ENGINEERING","ANALYTICAL SKILLS","BIG DATA","PREDICTIVE MODELS","PREDICTIVE MODELING","DATA ANALYTICS","DATA MANIPULATION","DATA WRANGLING","DATA MINING","DATA SCIENCE TOOLS","INTERPRETING DATA","METRICS","RISK MODELING","HYPOTHESIS TESTING","ADAPTABILITY","DECISION MAKING","DECISION TREES","ALGORITHMS","INFORMATION RETREIVAL","LINEAR ALGEBRA","MULTIVARIABLE CALCULUS","STATISTICAL MODELING","CLOUD SERVICES","CRITICAL THINKING","DATA ARCHITECTURE","DATA ARCHITECT","RISK ANALYSIS","PROCESS IMPROVEMENT","SYSTEMS ENGINEER","SYSTEMS ENGINEERING","UNSTRUCTURED DATA","DATA INTUITION")
+
+PERSONALITY_SKILLS<-c("CRITICAL THINKING","CREATIVITY","FAST PACED ENVIRONMENT","FAST-PACED ENVIRONMENT","LOGICAL THINKING","PROBLEM SOLVING","ASSERTIVE","ASSERTIVENESS","COLLABORATION","CONSULTING","DOCUMENTING","DOCUMENT", "DRAWING CONSENSUS","BUILDING CONSENSUS","FACILITATE MEETINGS","FACILITATING MEETINGS","LEADERSHIP","MENTOR","MENTORING","PRESENTATION","REPORTING","SUPERVISORY SKILLS","VERBAL COMMUNICATION","WRITEN COMMUNICATION","CURIOSITY","INNOVATION","INNOVATOR")
+
+TECH_SKILLS<-c("PYTHON"," R ","SQL","HADOOP","SPARK","JAVA"," SAS ","TABLEAU","HIVE","SCALA","AWS"#,"C\+\+"
+                  ,"MATLAB","TENSORFLOW"," C ","EXCEL","NOSQL","LINUX","AZURE","SICKIT-LEARN","PERL","APPENGINE","COUCHDB","JS","ECL","HBASE","SAAS","PIG")
+
+job_attr_df<-data.frame(id=integer(),descr=character(),general=character(),personality=character(),tech=character(),stringsAsFactors = FALSE)
+
+jd_df$job_descr<-toupper(jd_df$job_descr)
+
+#jd_df$job_descr[1]
+
+#length(GENERAL_SKILLS)
+
+    for (i in 1:(1436*length(GENERAL_SKILLS))){
+    for(j in 1:length(GENERAL_SKILLS)) {
+    if(grepl(GENERAL_SKILLS[j],jd_df$job_descr[i])){
+      job<- data.frame(id=jd_df$id[i],descr=jd_df$job_descr[i],general=GENERAL_SKILLS[j],personality="na",tech="na")
+      job_attr_df<-rbind(job_attr_df,job)
+    }
+    }
+    }
+   
+   
+    for (i in 1:(1436*length(PERSONALITY_SKILLS))){
+    for(j in 1:length(PERSONALITY_SKILLS)) {
+    if(grepl(PERSONALITY_SKILLS[j],jd_df$job_descr[i])){
+      job<- data.frame(id=jd_df$id[i],descr=jd_df$job_descr[i],general="na",personality=PERSONALITY_SKILLS[j],tech="na")
+      job_attr_df<-rbind(job_attr_df,job)
+    }
+    }
+    }
+   
+   
+    for (i in 1:(1436*length(TECH_SKILLS))){
+    for(j in 1:length(TECH_SKILLS)) {
+    if(grepl(TECH_SKILLS[j],jd_df$job_descr[i])){
+      job<- data.frame(id=jd_df$id[i],descr=jd_df$job_descr[i],general="na",personality="na",tech=TECH_SKILLS[j])
+      job_attr_df<-rbind(job_attr_df,job)
+    }
+    }
+    }
+  
+
+
+skills_all<-sqldf("select distinct * from(select id,general as skill from job_attr_df where general <> 'na' 
+      union all
+      select id,personality as skill from job_attr_df where personality <> 'na' 
+      union all
+      select id,tech as skill from job_attr_df where tech <> 'na') a")
+
+skills_cat<-sqldf("select distinct id,general,personality,tech from job_attr_df ")
+
+job_descr<-sqldf("select distinct  id,descr from job_attr_df")
+
+
+write.csv(skills_all, file ="INDEED_skills_all.csv", row.names=FALSE)
+write.csv(skills_cat, file ="INDEED_skills_cat.csv", row.names=FALSE)
+write.csv(job_descr, file ="INDEED_job_descr.csv", row.names=FALSE)
+
+```
+
+``` {r plotting different skills, eval=TRUE}
+library(dplyr)
+library(RCurl)
+library(magrittr)
+library(tidyverse)
+library(ggplot2)
+skills_cat<-read_csv("https://raw.githubusercontent.com/agersowitz/607-Project-3-ACC/master/INDEED_skills_cat.csv",col_names = TRUE)
+
+#subsetting dataframe to remove observations with NA
+sub_general <- subset(skills_cat, skills_cat$general!="na")
+ggplot(sub_general, aes(x = factor(sub_general$general))) +
+    geom_bar() + theme(axis.text.x = element_text(angle = 90)) + labs(title="Skills for Data Scientist Role", x="General Skills", y="Frequency of Occurrence")
+
+#subsetting dataframe to remove observations with NA
+sub_personality <- subset(skills_cat, skills_cat$personality!="na")
+sub_personality$personality[(sub_personality$personality %in% c("DOCUMENT","DOCUMENTING")==TRUE)]<- "DOCUMENTATION"
+sub_personality$personality[(sub_personality$personality %in% c("INNOVATOR")==TRUE)]<- "INNOVATION"
+sub_personality$personality[(sub_personality$personality %in% c("MENTOR")==TRUE)]<- "MENTORING"
+
+ggplot(sub_personality, aes(x = factor(sub_personality$personality))) +
+    geom_bar() + theme(axis.text.x = element_text(angle = 90)) + labs(title="Personality traits for Data Scientist Role", x="Personality traits", y="Frequency of Occurrence")
+
+#subsetting dataframe to remove observations with NA
+sub_tech <- subset(skills_cat, skills_cat$tech!="na")
+ggplot(sub_tech, aes(x = factor(sub_tech$tech))) +
+    geom_bar() + theme(axis.text.x = element_text(angle = 90)) + labs(title="Tech skills for Data Scientist Role", x="Tech skills", y="Frequency of Occurrence")
+
+```
+
+
